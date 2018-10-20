@@ -83,13 +83,20 @@ class AlarmWin(object):
         self._going_off = True
         self._ticking.config(text="Ringing")
         self._root.attributes('-topmost', True)
-        self._root.wm_state('normal')  # unminimize
+        self.unminimize()
         def periodically_grab_attention():
             if not self._going_off:
                 return
             # TODOF: do something to grab a attention
+            self.unminimize()
             self._root.after(30*1000, periodically_grab_attention)
         periodically_grab_attention()
+
+    def unminimize(self):
+        """Unminimizes root window, does nothing if it's not minimized
+        
+        """
+        self._root.wm_state('normal')  # unminimize cmd
 
     def ack(self):
         """Stops alarm from requiring attention
