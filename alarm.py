@@ -1,5 +1,6 @@
 
 from __future__ import print_function
+from __future__ import division
 import sys
 import argparse
 import time
@@ -22,75 +23,106 @@ if sys.version_info[:2] < (3, 3):
             file.flush() if file is not None else sys.stdout.flush()
 
 
-parser = argparse.ArgumentParser(description='Set alarms')
-parser.add_argument('mins', type=int, help='minutes till the alarm sets off')
-parser.add_argument('--message', '-m', help='message')
-args = parser.parse_args()
+class AlarmWin(object):
+
+    def __init__(self):
+        self._root = tkinter.Tk()
+        self._fill_window()
+        self._going_off = False
+
+    def _fill_window(self):
+        self._root.title('Alarm')
+        row = tkinter.Frame(self._root)
+        tkinter.Label(row, text="mins:").pack(side="left")
+        self._user_mins = tkinter.Text(row, height=1, width=5)
+        self._user_mins.pack(side="left")
+        self._user_mins.insert(tkinter.END, "25")
+        row.pack()
+        row = tkinter.Frame(self._root)
+        tkinter.Label(row, text="last start:").pack(side="left")
+        self._started = tkinter.Label(row, text="?")
+        self._started.pack(side="left")
+        row.pack()
+        row = tkinter.Frame(self._root)
+        tkinter.Label(row, text="ticking:").pack(side="left")
+        self._ticking = tkinter.Label(row, text="False")
+        self._ticking.pack(side="left")
+        row.pack()
+        row = tkinter.Frame(self._root)
+        tkinter.Button(row, text="start", command=self._start_cb).pack(side="left")
+        tkinter.Button(row, text="ack", command=self.ack).pack(side="left")
+        row.pack()
+
+    def _start_cb(self):
+        """Start button callback, reads minutes and starts alarm
+        
+        """
+        user_input = self._user_mins.get("1.0", tkinter.END)
+        try:
+            user_input = float(user_input)
+            self.start_alarm(user_input)
+        except ValueError as e:
+            self._started.config(text=repr(e))
+
+    def start_alarm(self, mins):
+        """Starts an alarm that will go off in :param mins: minutes
+        
+        :param mins: minutes until the alarm goes off
+        :type mins: int
+        """
+        self.ack()        
+        self._root.attributes('-topmost', False)
+        self._ticking.config(text="True")
+        self._started.config(text=time.strftime('%H:%M'))
+        self._root.after(int(mins*60000), self._go_off)
+        
+    def _go_off(self):
+        """Sets alarm off and periodically asks for attention until ack
+        
+        """
+        self._going_off = True
+        self._ticking.config(text="Ringing")
+        self._root.attributes('-topmost', True)
+        self._root.wm_state('normal')  # unminimize
+        def periodically_grab_attention():
+            if not self._going_off:
+                return
+            # TODOF: do something to grab a attention
+            self._root.after(30*1000, periodically_grab_attention)
+        periodically_grab_attention()
+
+    def ack(self):
+        """Stops alarm from requiring attention
+        
+        """
+        if self._going_off:
+            self._root.attributes('-topmost', False)
+            self._ticking.config(text="False")
+            self._going_off = False
+
+    def _place_window(self):
+        """Places window where it ought to be
+        
+        """
+        # get window sizes
+        self._root.update()
+        w = self._root.winfo_width()
+        h = self._root.winfo_height()
+
+        # get screen width and height
+        ws = self._root.winfo_screenwidth() # width of the screen
+        hs = self._root.winfo_screenheight() # height of the screen
+
+        # set the dimensions of the screen
+        # and where it is placed
+        self._root.geometry('%dx%d+%d+%d' % (w, h, ws-w-16, hs-h-40))
+
+    def mainloop(self):
+        """Starts tkinter window loop
+        
+        """
+        self._place_window()
+        self._root.mainloop()
 
 
-def setAlarm(mins, message):
-
-    start = time.strftime('%H:%M')
-    print(start, '->', sep=' ', end=' ', flush=True)
-    time.sleep(mins*60)
-    end = time.strftime('%H:%M')
-    print(end)
-    # print('\a')
-
-    root = tkinter.Tk()
-    root.title('Alarm')
-    root.attributes('-topmost', True)
-
-    text = "%s -> %s | %s" % (start, end, message)
-    T = tkinter.Text(root, height=2, width=len(text))
-    T.pack()
-    T.insert(tkinter.END, text)
-
-    # reset button
-    # if clicked it's like the alarm was started again with the same parameters
-    def reset():
-        root.destroy()
-        setAlarm(mins, message)
-    resetBtn = tkinter.Button(root, text="reset", command=reset)
-    resetBtn.pack()
-
-    # beeps every 5 seconds
-    no_beep = 'no_beep'
-    root.setvar('beep', no_beep)
-    def beep():
-        def beeps(n):
-            for _ in range(n):
-                winsound.Beep(1000, 300)
-        threading.Thread(target=beeps, args=[3]).start()
-        future_beep = root.after(5000, beep)
-        root.setvar('beep', future_beep)
-    beep()
-
-    # ack btn that stops/restarts beeping
-    def ack():
-        future_beep = root.getvar('beep')
-        if future_beep != no_beep:
-            root.after_cancel(future_beep)
-            root.setvar('beep', no_beep)
-        else:
-            beep()
-    ackBtn = tkinter.Button(root, text="ack", command=ack)
-    ackBtn.pack()
-
-    # get window sizes
-    root.update()
-    w = root.winfo_width()
-    h = root.winfo_height()
-
-    # get screen width and height
-    ws = root.winfo_screenwidth() # width of the screen
-    hs = root.winfo_screenheight() # height of the screen
-
-    # set the dimensions of the screen
-    # and where it is placed
-    root.geometry('%dx%d+%d+%d' % (w, h, ws-w-16, hs-h-40))
-
-    root.mainloop()
-
-
-setAlarm(args.mins, args.message)
+AlarmWin().mainloop()
