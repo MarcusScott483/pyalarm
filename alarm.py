@@ -27,6 +27,8 @@ class AlarmWin(object):
 
     def __init__(self):
         self._root = tkinter.Tk()
+        self._default_bg = self._root.cget('bg')
+        self._afters = set()
         self._fill_window()
         self._going_off = False
 
@@ -43,11 +45,8 @@ class AlarmWin(object):
         self._started = tkinter.Label(row, text="?")
         self._started.pack(side="left")
         row.pack()
-        row = tkinter.Frame(self._root)
-        tkinter.Label(row, text="ticking:").pack(side="left")
-        self._ticking = tkinter.Label(row, text="False")
-        self._ticking.pack(side="left")
-        row.pack()
+        self._state = tkinter.Label(self._root, text="idle")
+        self._state.pack()
         row = tkinter.Frame(self._root)
         tkinter.Button(row, text="start", command=self._start_cb).pack(side="left")
         tkinter.Button(row, text="ack", command=self.ack).pack(side="left")
@@ -64,6 +63,38 @@ class AlarmWin(object):
         except ValueError as e:
             self._started.config(text=repr(e))
 
+    def _schedule(self, ms, func, *args):
+        """Schedules :param func: to be executed after :param ms: milliseconds, registering it in ._afters
+        
+        :param ms: milliseconds of delay
+        :type ms: int
+        :param func: function to be executed
+        :type func: callable
+
+        :return: scheduling identifier
+        :rtype: str
+        """
+        def wrapper(*args):
+            func(*args)
+            self._afters.remove(after_id)
+        after_id = self._root.after(ms, wrapper, *args)
+        self._afters.add(after_id)
+        return after_id
+
+    def _unschedule(self, after_id=None):
+        """Unschedules function with given id, by default unschedules all functions
+        
+        :param after_id: function id to be unscheduled, defaults to None (i.e. all functions)
+        :param after_id: str, optional
+        """
+        if after_id is None:
+            for id_ in self._afters:
+                self._root.after_cancel(id_)
+            self._afters.clear()
+        else:
+            self._root.after_cancel(after_id)
+            self._afters.discard(id_)
+
     def start_alarm(self, mins):
         """Starts an alarm that will go off in :param mins: minutes
         
@@ -72,24 +103,25 @@ class AlarmWin(object):
         """
         self.ack()        
         self._root.attributes('-topmost', False)
-        self._ticking.config(text="True")
+        self._state.config(text="ticking")
         self._started.config(text=time.strftime('%H:%M'))
-        self._root.after(int(mins*60000), self._go_off)
+        self._schedule(int(mins*60000), self._go_off)
         
     def _go_off(self):
         """Sets alarm off and periodically asks for attention until ack
         
         """
         self._going_off = True
-        self._ticking.config(text="Ringing")
+        self._state.config(text="ringing")
         self._root.attributes('-topmost', True)
         self.unminimize()
         def periodically_grab_attention():
-            if not self._going_off:
-                return
-            # TODOF: do something to grab a attention
             self.unminimize()
-            self._root.after(30*1000, periodically_grab_attention)
+            self._root.config(background="orange")
+            for i in range(3):
+                self._schedule(i*1000 + 500, lambda: self._root.config(background=self._default_bg))
+                self._schedule(i*1000 + 1000, lambda: self._root.config(background="orange"))
+            self._schedule(30*1000, periodically_grab_attention)
         periodically_grab_attention()
 
     def unminimize(self):
@@ -102,10 +134,11 @@ class AlarmWin(object):
         """Stops alarm from requiring attention
         
         """
-        if self._going_off:
-            self._root.attributes('-topmost', False)
-            self._ticking.config(text="False")
-            self._going_off = False
+        self._unschedule()
+        self._root.attributes('-topmost', False)
+        self._state.config(text="idle")
+        self._root.config(background=self._default_bg)
+        self._going_off = False
 
     def _place_window(self):
         """Places window where it ought to be
