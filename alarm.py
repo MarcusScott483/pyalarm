@@ -2,10 +2,7 @@
 from __future__ import print_function
 from __future__ import division
 import sys
-import argparse
 import time
-import winsound
-import threading
 try:
     import tkinter
 except ImportError:
