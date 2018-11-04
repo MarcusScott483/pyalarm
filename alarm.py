@@ -51,8 +51,10 @@ class AlarmWin(object):
         self._state = tkinter.Label(self._root, text="idle")
         self._state.pack()
         row = tkinter.Frame(self._root)
+        self._minimize_chk_var = tkinter.IntVar()
         tkinter.Button(row, text="start", command=self._start_cb).pack(side="left")
         tkinter.Button(row, text="ack", command=self.ack).pack(side="left")
+        tkinter.Checkbutton(row, text="auto min", variable=self._minimize_chk_var).pack(side="left")
         row.pack()
 
     def _start_cb(self):
@@ -99,15 +101,24 @@ class AlarmWin(object):
             self._afters.discard(id_)
 
     def start_alarm(self, mins):
-        """Starts an alarm that will go off in :param mins: minutes
+        """Starts an alarm that will go off in :param mins: minutes, if checkbox is ticked minimizes window
         
         :param mins: minutes until the alarm goes off
         :type mins: int
         """
         self.ack()        
+        # don't force window to be topmost anymore
         self._root.attributes('-topmost', False)
+        # update state text
         self._state.config(text="ticking")
+        # update start time
         self._started.config(text=time.strftime('%H:%M'))
+
+        # minimize if checkbox ticked
+        if self._minimize_chk_var.get() == 1:
+            self.minimize()
+
+        # schedule going off
         self._schedule(int(mins*60000), self._go_off)
         
     def _go_off(self):
@@ -126,6 +137,12 @@ class AlarmWin(object):
                 self._schedule(i*1000 + 1000, lambda: self._root.config(background="orange"))
             self._schedule(30*1000, periodically_grab_attention)
         periodically_grab_attention()
+
+    def minimize(self):
+        """Minimizes the window
+        
+        """
+        self._root.wm_state('iconic')  # minimize cmd
 
     def unminimize(self):
         """Unminimizes root window, does nothing if it's not minimized
