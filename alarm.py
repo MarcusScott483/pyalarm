@@ -3,6 +3,7 @@ from __future__ import print_function
 from __future__ import division
 import sys
 import time
+import os
 try:
     import tkinter
 except ImportError:
@@ -20,10 +21,15 @@ if sys.version_info[:2] < (3, 3):
             file.flush() if file is not None else sys.stdout.flush()
 
 
+# absolute script directory path
+abs_dir = os.path.dirname(os.path.abspath(__file__))
+
+
 class AlarmWin(object):
 
     def __init__(self):
         self._root = tkinter.Tk()
+        self._root.iconbitmap(os.path.join(abs_dir, "data", "alarm.ico"))
         self._default_bg = self._root.cget('bg')
         self._afters = set()
         self._fill_window()
