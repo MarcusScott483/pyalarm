@@ -1,3 +1,4 @@
+
 from __future__ import print_function
 from __future__ import division
 import sys
@@ -40,7 +41,7 @@ class AlarmWin(object):
         tkinter.Label(row, text="mins:").pack(side="left")
         self._user_mins = tkinter.Text(row, height=1, width=5)
         self._user_mins.pack(side="left")
-        self._user_mins.insert(tkinter.END, "25")
+        self._user_mins.insert(tkinter.END, "10")
         row.pack()
         row = tkinter.Frame(self._root)
         tkinter.Label(row, text="last start:").pack(side="left")
@@ -51,6 +52,7 @@ class AlarmWin(object):
         self._state.pack()
         row = tkinter.Frame(self._root)
         self._minimize_chk_var = tkinter.IntVar()
+        self._minimize_chk_var.set(1)
         tkinter.Button(row, text="start", command=self._start_cb).pack(side="left")
         tkinter.Button(row, text="ack", command=self.ack).pack(side="left")
         tkinter.Checkbutton(row, text="auto min", variable=self._minimize_chk_var).pack(side="left")
@@ -167,14 +169,19 @@ class AlarmWin(object):
         self._root.update()
         w = self._root.winfo_width()
         h = self._root.winfo_height()
+        
+        w *= 1.4
 
         # get screen width and height
         ws = self._root.winfo_screenwidth() # width of the screen
         hs = self._root.winfo_screenheight() # height of the screen
+        
+        roffset = 16
+        boffset = 80
 
         # set the dimensions of the screen
         # and where it is placed
-        self._root.geometry('%dx%d+%d+%d' % (w, h, ws-w-16, hs-h-40))
+        self._root.geometry('%dx%d+%d+%d' % (w, h, ws-w-roffset, hs-h-boffset))
 
     def mainloop(self):
         """Starts tkinter window loop
